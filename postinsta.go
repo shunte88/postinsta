@@ -116,7 +116,7 @@ func main() {
 	password := os.Getenv("INSTA_PASS")
 	tags := os.Getenv("INSTA_TAG")
 
-	fmt.Println(username, password, tags)
+	// fmt.Println(username, password, tags)
 
 	var latestFile fs.FileInfo
 	err := filepath.WalkDir(*folder, func(path string, d fs.DirEntry, err error) error {
