@@ -11,25 +11,35 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Davincible/goinsta/v3"
 	"golang.org/x/image/webp"
 )
 
-var validExt = map[string]bool{
-	".png":  true,
-	".jpg":  true,
-	".jpeg": true,
-	".webp": true,
+type VE struct {
+	Good   bool
+	Offset int
+}
+
+var validExt = map[string]VE{
+	".png":  VE{true, 4},
+	".jpg":  VE{true, 0},
+	".jpeg": VE{true, 0},
+	".webp": VE{true, 5},
 }
 
 func uploadToInstagram(username, password, imagePath, caption string) error {
+
+	fmt.Println("Uploading for .....:", username)
 	insta := goinsta.New(username, password)
 	if err := insta.Login(); err != nil {
 		return err
 	}
 	defer insta.Logout()
 
+	fmt.Println("Logged in as ......:", insta.Account.Username)
+	fmt.Println("Processing File ...:", imagePath)
 	file, err := os.Open(imagePath)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
@@ -44,6 +54,7 @@ func uploadToInstagram(username, password, imagePath, caption string) error {
 	}
 
 	// upload the image
+	fmt.Println("Caption reads .....:", caption)
 	_, err = insta.Upload(
 		&goinsta.UploadOptions{
 			File: bytes.NewReader(imgData),
@@ -70,6 +81,7 @@ func jpgEncode(img image.Image, output string) error {
 }
 
 func convertWebPToJpeg(input, output string) error {
+	fmt.Println("Converting webp to jpg", input)
 	f, err := os.Open(input)
 	if err != nil {
 		return err
@@ -113,10 +125,12 @@ func main() {
 	flag.Parse()
 
 	username := os.Getenv("INSTA_USERNAME")
+	if username == "" {
+		fmt.Println("INSTA_USERNAME not set")
+		os.Exit(1)
+	}
 	password := os.Getenv("INSTA_PASS")
 	tags := os.Getenv("INSTA_TAG")
-
-	// fmt.Println(username, password, tags)
 
 	var latestFile fs.FileInfo
 	err := filepath.WalkDir(*folder, func(path string, d fs.DirEntry, err error) error {
@@ -128,7 +142,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-			if validExt[filepath.Ext(info.Name())] {
+			if validExt[filepath.Ext(info.Name())].Good {
 				if latestFile == nil || info.ModTime().After(latestFile.ModTime()) {
 					latestFile = info
 				}
@@ -142,15 +156,22 @@ func main() {
 	}
 
 	if latestFile != nil {
-		// if the file has a webp extension, convert it to jpg
-		if filepath.Ext(latestFile.Name()) == ".webp" {
-			newName := latestFile.Name()[:len(latestFile.Name())-5] + ".jpg" // remove the webp extension and add jpg
+		offset := validExt[filepath.Ext(latestFile.Name())].Offset
+		if offset != 0 {
+			newName := latestFile.Name()[:len(latestFile.Name())-offset] + ".jpg" // remove the webp extension and add jpg
 			newPath := filepath.Join(*folder, newName)
-			if err := convertWebPToJpeg(filepath.Join(*folder, latestFile.Name()), newPath); err != nil {
-				fmt.Println("Error converting webp to png:", err)
-				os.Exit(1)
+			switch offset {
+			case 4:
+				if err := convertPngToJpeg(filepath.Join(*folder, latestFile.Name()), newPath); err != nil {
+					fmt.Println("Error converting png to jpg:", err)
+					os.Exit(1)
+				}
+			case 5:
+				if err := convertWebPToJpeg(filepath.Join(*folder, latestFile.Name()), newPath); err != nil {
+					fmt.Println("Error converting webp to jpg:", err)
+					os.Exit(1)
+				}
 			}
-			// move the webp file to history
 			if err := moveToHistory(filepath.Join(*folder, latestFile.Name()), filepath.Join(*folder, "history")); err != nil {
 				fmt.Println("Error moving webp file to history:", err)
 				os.Exit(1)
@@ -161,28 +182,17 @@ func main() {
 				fmt.Println("Error getting file info:", err)
 				os.Exit(1)
 			}
-		} else if filepath.Ext(latestFile.Name()) == ".png" {
-			newName := latestFile.Name()[:len(latestFile.Name())-4] + ".jpg" // remove the webp extension and add jpg
-			newPath := filepath.Join(*folder, newName)
-			if err := convertPngToJpeg(filepath.Join(*folder, latestFile.Name()), newPath); err != nil {
-				fmt.Println("Error converting webp to jpg:", err)
-				os.Exit(1)
-			}
-			// move the png file to history
-			if err := moveToHistory(filepath.Join(*folder, latestFile.Name()), filepath.Join(*folder, "history")); err != nil {
-				fmt.Println("Error moving png file to history:", err)
-				os.Exit(1)
-			}
-			// update the latest file
-			latestFile, err = os.Stat(newPath)
-			if err != nil {
-				fmt.Println("Error getting file info:", err)
-				os.Exit(1)
-			}
 		}
 
-		fmt.Println("Latest file:", latestFile.Name())
-		if err := uploadToInstagram(username, password, filepath.Join(*folder, latestFile.Name()), tags); err != nil {
+		fmt.Println("Latest image, processing:", latestFile.Name())
+		caption := latestFile.Name()[:len(latestFile.Name())-4]  // remove the extension
+		caption = strings.Join(strings.Split(caption, "_"), " ") // replace _ with space
+		fmt.Println(caption)
+
+		if tags != "" {
+			caption = caption + " #" + strings.Join(strings.Split(tags, `,`), " #")
+		}
+		if err := uploadToInstagram(username, password, filepath.Join(*folder, latestFile.Name()), caption); err != nil {
 			fmt.Println("Error uploading to Instagram:", err)
 			os.Exit(1)
 		} else {
@@ -196,6 +206,6 @@ func main() {
 		}
 
 	} else {
-		fmt.Println("No files found")
+		fmt.Println("No files found this iteration")
 	}
 }
