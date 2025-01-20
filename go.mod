@@ -1,4 +1,4 @@
-module shunte88/postinsya
+module shunte88/postinsta
 
 go 1.19
 

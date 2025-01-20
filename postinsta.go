@@ -31,7 +31,6 @@ var validExt = map[string]VE{
 
 func uploadToInstagram(username, password, imagePath, caption string) error {
 
-	fmt.Println("Uploading for .....:", username)
 	insta := goinsta.New(username, password)
 	if err := insta.Login(); err != nil {
 		return err
@@ -137,7 +136,8 @@ func main() {
 		if err != nil {
 			return err
 		}
-		if !d.IsDir() {
+		if !d.IsDir() && !strings.Contains(path, `/history`) {
+
 			info, err := d.Info()
 			if err != nil {
 				return err
@@ -187,11 +187,11 @@ func main() {
 		fmt.Println("Latest image, processing:", latestFile.Name())
 		caption := latestFile.Name()[:len(latestFile.Name())-4]  // remove the extension
 		caption = strings.Join(strings.Split(caption, "_"), " ") // replace _ with space
-		fmt.Println(caption)
 
 		if tags != "" {
 			caption = caption + " #" + strings.Join(strings.Split(tags, `,`), " #")
 		}
+		fmt.Println(caption)
 		if err := uploadToInstagram(username, password, filepath.Join(*folder, latestFile.Name()), caption); err != nil {
 			fmt.Println("Error uploading to Instagram:", err)
 			os.Exit(1)
