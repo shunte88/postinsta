@@ -191,7 +191,7 @@ func main() {
 		if tags != "" {
 			caption = caption + " #" + strings.Join(strings.Split(tags, `,`), " #")
 		}
-		fmt.Println(caption)
+
 		if err := uploadToInstagram(username, password, filepath.Join(*folder, latestFile.Name()), caption); err != nil {
 			fmt.Println("Error uploading to Instagram:", err)
 			os.Exit(1)
