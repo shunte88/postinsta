@@ -150,7 +150,7 @@ func main() {
 			}
 
 			if err := moveToHistory(filepath.Join(*folder, latestFile.Name()), filepath.Join(*folder, "history")); err != nil {
-				log.Println("Error moving webp file to history:", err)
+				log.Println("Error moving original format file to history:", err)
 				os.Exit(1)
 			}
 			// update the latest file
@@ -161,7 +161,7 @@ func main() {
 			}
 		}
 
-		log.Println("Latest image, processing:", latestFile.Name())
+		log.Println("Latest image ......:", latestFile.Name())
 		caption := latestFile.Name()[:len(latestFile.Name())-4]  // remove the extension
 		caption = strings.Join(strings.Split(caption, "_"), " ") // replace _ with space
 
@@ -173,7 +173,7 @@ func main() {
 			log.Println("Error uploading to Instagram:", err)
 			os.Exit(1)
 		} else {
-			log.Println("Uploaded to Instagram")
+			log.Println("Upload to Instagram complete...")
 			// move the file to history
 			if err := moveToHistory(filepath.Join(*folder, latestFile.Name()), filepath.Join(*folder, "history")); err != nil {
 				log.Println("Error moving file to history:", err)
