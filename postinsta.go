@@ -115,7 +115,7 @@ func main() {
 	password := os.Getenv("INSTA_PASS")
 	tags := os.Getenv("INSTA_TAG")
 
-	var latestFile fs.FileInfo
+	var targetFile fs.FileInfo
 	err := filepath.WalkDir(*folder, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -127,8 +127,8 @@ func main() {
 				return err
 			}
 			if validExt[filepath.Ext(info.Name())].Good {
-				if latestFile == nil || info.ModTime().After(latestFile.ModTime()) {
-					latestFile = info
+				if targetFile == nil || info.ModTime().Before(targetFile.ModTime()) {
+					targetFile = info
 				}
 			}
 		}
@@ -139,43 +139,43 @@ func main() {
 		os.Exit(1)
 	}
 
-	if latestFile != nil {
-		offset := validExt[filepath.Ext(latestFile.Name())].Offset
+	if targetFile != nil {
+		offset := validExt[filepath.Ext(targetFile.Name())].Offset
 		if offset != 0 {
-			newName := latestFile.Name()[:len(latestFile.Name())-offset] + ".jpg" // remove the webp extension and add jpg
+			newName := targetFile.Name()[:len(targetFile.Name())-offset] + ".jpg" // remove the webp extension and add jpg
 			newPath := filepath.Join(*folder, newName)
-			if err := convertImageToJpeg(filepath.Join(*folder, latestFile.Name()), newPath); err != nil {
+			if err := convertImageToJpeg(filepath.Join(*folder, targetFile.Name()), newPath); err != nil {
 				log.Println("Error converting image to jpg:", err)
 				os.Exit(1)
 			}
 
-			if err := moveToHistory(filepath.Join(*folder, latestFile.Name()), filepath.Join(*folder, "history")); err != nil {
+			if err := moveToHistory(filepath.Join(*folder, targetFile.Name()), filepath.Join(*folder, "history")); err != nil {
 				log.Println("Error moving original format file to history:", err)
 				os.Exit(1)
 			}
-			// update the latest file
-			latestFile, err = os.Stat(newPath)
+			// update the target file
+			targetFile, err = os.Stat(newPath)
 			if err != nil {
 				log.Println("Error getting file info:", err)
 				os.Exit(1)
 			}
 		}
 
-		log.Println("Latest image ......:", latestFile.Name())
-		caption := latestFile.Name()[:len(latestFile.Name())-4]  // remove the extension
+		log.Println("Todays image ......:", targetFile.Name())
+		caption := targetFile.Name()[:len(targetFile.Name())-4]  // remove the extension
 		caption = strings.Join(strings.Split(caption, "_"), " ") // replace _ with space
 
 		if tags != "" {
 			caption = caption + " #" + strings.Join(strings.Split(tags, `,`), " #")
 		}
 
-		if err := uploadToInstagram(username, password, filepath.Join(*folder, latestFile.Name()), caption); err != nil {
+		if err := uploadToInstagram(username, password, filepath.Join(*folder, targetFile.Name()), caption); err != nil {
 			log.Println("Error uploading to Instagram:", err)
 			os.Exit(1)
 		} else {
 			log.Println("Upload to Instagram complete...")
 			// move the file to history
-			if err := moveToHistory(filepath.Join(*folder, latestFile.Name()), filepath.Join(*folder, "history")); err != nil {
+			if err := moveToHistory(filepath.Join(*folder, targetFile.Name()), filepath.Join(*folder, "history")); err != nil {
 				log.Println("Error moving file to history:", err)
 				os.Exit(1)
 			}
